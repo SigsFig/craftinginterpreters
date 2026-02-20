@@ -478,45 +478,48 @@ private Expr comma() {
   }
 //< Functions call
 //> primary
-  private Expr primary() {
-    if (match(FALSE)) return new Expr.Literal(false);
-    if (match(TRUE)) return new Expr.Literal(true);
-    if (match(NIL)) return new Expr.Literal(null);
+private Expr primary() {
+  if (match(FALSE)) return new Expr.Literal(false);
+  if (match(TRUE)) return new Expr.Literal(true);
+  if (match(NIL)) return new Expr.Literal(null);
 
-    if (match(NUMBER, STRING)) {
-      return new Expr.Literal(previous().literal);
-    }
-//> Inheritance parse-super
-
-    if (match(SUPER)) {
-      Token keyword = previous();
-      consume(DOT, "Expect '.' after 'super'.");
-      Token method = consume(IDENTIFIER,
-          "Expect superclass method name.");
-      return new Expr.Super(keyword, method);
-    }
-//< Inheritance parse-super
-//> Classes parse-this
-
-    if (match(THIS)) return new Expr.This(previous());
-//< Classes parse-this
-//> Statements and State parse-identifier
-
-    if (match(IDENTIFIER)) {
-      return new Expr.Variable(previous());
-    }
-//< Statements and State parse-identifier
-
-    if (match(LEFT_PAREN)) {
-      Expr expr = expression();
-      consume(RIGHT_PAREN, "Expect ')' after expression.");
-      return new Expr.Grouping(expr);
-    }
-//> primary-error
-
-    throw error(peek(), "Expect expression.");
-//< primary-error
+  if (match(NUMBER, STRING)) {
+    return new Expr.Literal(previous().literal);
   }
+
+  if (match(LEFT_PAREN)) {
+    Expr expr = expression();
+    consume(RIGHT_PAREN, "Expect ')' after expression.");
+    return new Expr.Grouping(expr);
+  }
+
+  // Error productions.
+  if (match(BANG_EQUAL, EQUAL_EQUAL)) {
+    error(previous(), "Missing left-hand operand.");
+    equality();
+    return null;
+  }
+
+  if (match(GREATER, GREATER_EQUAL, LESS, LESS_EQUAL)) {
+    error(previous(), "Missing left-hand operand.");
+    comparison();
+    return null;
+  }
+
+  if (match(PLUS)) {
+    error(previous(), "Missing left-hand operand.");
+    term();
+    return null;
+  }
+
+  if (match(SLASH, STAR)) {
+    error(previous(), "Missing left-hand operand.");
+    factor();
+    return null;
+  }
+
+  throw error(peek(), "Expect expression.");
+}
 //< primary
 //> match
   private boolean match(TokenType... types) {
