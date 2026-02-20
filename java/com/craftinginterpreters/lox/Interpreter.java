@@ -317,6 +317,9 @@ class Interpreter implements Expr.Visitor<Object>,
 //> check-slash-operand
         checkNumberOperands(expr.operator, left, right);
 //< check-slash-operand
+        if ((double)right == 0){
+          throw new RuntimeError(expr.operator, "Cannot divide by zero.");
+        }  
         return (double)left / (double)right;
       case STAR:
 //> check-star-operand
