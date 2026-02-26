@@ -63,6 +63,17 @@ class Interpreter implements Expr.Visitor<Object>,
   }
 */
 //> Statements and State interpret
+
+  String interpret(Expr expression) {
+    try {
+      Object value = evaluate(expression);
+      return stringify(value);
+    } catch (RuntimeError error) {
+      Lox.runtimeError(error);
+      return null;
+    }
+  }
+  
   void interpret(List<Stmt> statements) {
     try {
       for (Stmt statement : statements) {
@@ -303,7 +314,7 @@ class Interpreter implements Expr.Visitor<Object>,
       case PLUS:
         if (left instanceof String || right instanceof String) {
           return stringify(left) + stringify(right);
-        }
+        } 
 
         if (left instanceof Double && right instanceof Double) {
           return (double)left + (double)right;
