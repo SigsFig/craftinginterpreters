@@ -5,6 +5,8 @@ import java.util.List;
 
 class LoxFunction implements LoxCallable {
   private final Stmt.Function declaration;
+  private final String name;
+
 //> closure-field
   private final Environment closure;
   
@@ -18,11 +20,12 @@ class LoxFunction implements LoxCallable {
 //> Classes is-initializer-field
   private final boolean isInitializer;
 
-  LoxFunction(Stmt.Function declaration, Environment closure,
+  LoxFunction(String name,Stmt.Function declaration, Environment closure,
               boolean isInitializer) {
     this.isInitializer = isInitializer;
 //< Classes is-initializer-field
 //> closure-constructor
+    this.name = name; 
     this.closure = closure;
 //< closure-constructor
     this.declaration = declaration;
@@ -43,7 +46,8 @@ class LoxFunction implements LoxCallable {
 //> function-to-string
   @Override
   public String toString() {
-    return "<fn " + declaration.name.lexeme + ">";
+    if (name == null) return "<fn>";
+    return "<fn " + name + ">";
   }
 //< function-to-string
 //> function-arity

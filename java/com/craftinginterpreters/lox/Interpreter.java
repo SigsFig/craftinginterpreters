@@ -190,18 +190,14 @@ class Interpreter implements Expr.Visitor<Object>,
 //> Functions visit-function
   @Override
   public Void visitFunctionStmt(Stmt.Function stmt) {
-/* Functions visit-function < Functions visit-closure
-    LoxFunction function = new LoxFunction(stmt);
-*/
-/* Functions visit-closure < Classes construct-function
-    LoxFunction function = new LoxFunction(stmt, environment);
-*/
-//> Classes construct-function
-    LoxFunction function = new LoxFunction(stmt, environment,
-                                           false);
-//< Classes construct-function
-    environment.define(stmt.name.lexeme, function);
-    return null;
+      String fnName = stmt.name.lexeme;
+      environment.define(fnName, new LoxFunction(fnName, stmt.function, environment));
+      return null;
+  }
+
+  @Override
+  public Object visitFunctionExpr(Expr.Function expr) {
+      return new LoxFunction(null, expr, environment);
   }
 //< Functions visit-function
 //> Control Flow visit-if
