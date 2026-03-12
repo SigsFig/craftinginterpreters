@@ -50,6 +50,19 @@ class Interpreter implements Expr.Visitor<Object>,
       @Override
       public String toString() { return "<native fn>"; }
     });
+    globals.define("Array", new LoxCallable() {
+      @Override
+      public int arity() {
+        return 1;
+      }
+
+      @Override
+      public Object call(Interpreter interpreter,
+                        List<Object> arguments) {
+        int size = (int)(double)arguments.get(0);
+        return new LoxArray(size);
+      }
+    });
   }
   
 //< Functions interpreter-constructor
