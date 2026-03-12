@@ -55,6 +55,10 @@ class LoxFunction implements LoxCallable {
   public int arity() {
     return declaration.params.size();
   }
+
+  public boolean isGetter() {
+    return declaration.params == null;
+  }
 //< function-arity
 //> function-call
   @Override
@@ -65,6 +69,12 @@ class LoxFunction implements LoxCallable {
 */
 //> call-closure
     Environment environment = new Environment(closure);
+    if (declaration.params != null) {
+      for (int i = 0; i < declaration.params.size(); i++) {
+        environment.define(declaration.params.get(i).lexeme,
+            arguments.get(i));
+      }
+    }
 //< call-closure
     for (int i = 0; i < declaration.params.size(); i++) {
       environment.define(declaration.params.get(i).lexeme,
