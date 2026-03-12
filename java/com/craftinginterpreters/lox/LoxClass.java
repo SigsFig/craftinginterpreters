@@ -36,37 +36,46 @@ class LoxClass implements LoxCallable {
   }
 //< lox-class-methods
 //> lox-class-find-method
-  LoxFunction findMethod(String name) {
-    if (methods.containsKey(name)) {
-      return methods.get(name);
+  LoxFunction findMethod(LoxInstance instance, String name) {
+    LoxFunction method = null;
+    LoxFunction inner = null;
+    LoxClass klass = this;
+    while (klass != null) {
+      if (klass.methods.containsKey(name)) {
+        inner = method;
+        method = klass.methods.get(name);
+      }
+
+      klass = klass.superclass;
     }
 
-//> Inheritance find-method-recurse-superclass
-    if (superclass != null) {
-      return superclass.findMethod(name);
+    if (method != null) {
+      return method.bind(instance, inner);
     }
 
-//< Inheritance find-method-recurse-superclass
     return null;
   }
 //< lox-class-find-method
 
+  LoxFunction bind(LoxInstance instance, LoxFunction inner) {
+    Environment environment = new Environment(closure);
+    environment.define("this", instance);
+    environment.define("inner", inner);
+    return new LoxFunction(declaration, environment, isInitializer);
+  }
   @Override
   public String toString() {
     return name;
   }
 //> lox-class-call-arity
   @Override
-  public Object call(Interpreter interpreter,
-                     List<Object> arguments) {
+  public Object call(Interpreter interpreter, List<Object> arguments) {
     LoxInstance instance = new LoxInstance(this);
-//> lox-class-call-initializer
-    LoxFunction initializer = findMethod("init");
+    LoxFunction initializer = findMethod(instance, "init");
     if (initializer != null) {
-      initializer.bind(instance).call(interpreter, arguments);
+      initializer.call(interpreter, arguments);
     }
 
-//< lox-class-call-initializer
     return instance;
   }
 
