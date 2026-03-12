@@ -132,7 +132,9 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
 //< resolver-initializer-type
       resolveFunction(method, declaration); // [local]
     }
-
+    for (Stmt.Function method : stmt.classMethods) {
+      resolveFunction(method, FunctionType.METHOD);
+    }
 //> resolver-end-this-scope
     endScope();
 

@@ -138,57 +138,24 @@ class Interpreter implements Expr.Visitor<Object>,
 //> Classes interpreter-visit-class
   @Override
   public Void visitClassStmt(Stmt.Class stmt) {
-//> Inheritance interpret-superclass
-    Object superclass = null;
-    if (stmt.superclass != null) {
-      superclass = evaluate(stmt.superclass);
-      if (!(superclass instanceof LoxClass)) {
-        throw new RuntimeError(stmt.superclass.name,
-            "Superclass must be a class.");
-      }
-    }
-
-//< Inheritance interpret-superclass
     environment.define(stmt.name.lexeme, null);
-//> Inheritance begin-superclass-environment
-
-    if (stmt.superclass != null) {
-      environment = new Environment(environment);
-      environment.define("super", superclass);
+    Map<String, LoxFunction> classMethods = new HashMap<>();
+    for (Stmt.Function method : stmt.classMethods) {
+      LoxFunction function = new LoxFunction(method, environment, false);
+      classMethods.put(method.name.lexeme, function);
     }
-//< Inheritance begin-superclass-environment
-//> interpret-methods
+
+    LoxClass metaclass = new LoxClass(null,
+        stmt.name.lexeme + " metaclass", classMethods);
 
     Map<String, LoxFunction> methods = new HashMap<>();
     for (Stmt.Function method : stmt.methods) {
-/* Classes interpret-methods < Classes interpreter-method-initializer
-      LoxFunction function = new LoxFunction(method, environment);
-*/
-//> interpreter-method-initializer
       LoxFunction function = new LoxFunction(method, environment,
           method.name.lexeme.equals("init"));
-//< interpreter-method-initializer
       methods.put(method.name.lexeme, function);
     }
 
-/* Classes interpret-methods < Inheritance interpreter-construct-class
-    LoxClass klass = new LoxClass(stmt.name.lexeme, methods);
-*/
-//> Inheritance interpreter-construct-class
-    LoxClass klass = new LoxClass(stmt.name.lexeme,
-        (LoxClass)superclass, methods);
-//> end-superclass-environment
-
-    if (superclass != null) {
-      environment = environment.enclosing;
-    }
-//< end-superclass-environment
-
-//< Inheritance interpreter-construct-class
-//< interpret-methods
-/* Classes interpreter-visit-class < Classes interpret-methods
-    LoxClass klass = new LoxClass(stmt.name.lexeme);
-*/
+    LoxClass klass = new LoxClass(metaclass, stmt.name.lexeme, methods);
     environment.assign(stmt.name, klass);
     return null;
   }
