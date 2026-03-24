@@ -117,6 +117,21 @@ typedef struct {
   ValueArray constants;
 //< chunk-constants
 } Chunk;
+
+typedef struct {
+  int offset;
+  int line;
+} LineStart;
+
+typedef struct {
+  int count;
+  int capacity;
+  uint8_t* code;
+  ValueArray constants;
+  int lineCount;
+  int lineCapacity;
+  LineStart* lines;
+} Chunk;
 //< chunk-struct
 //> init-chunk-h
 
@@ -124,6 +139,8 @@ void initChunk(Chunk* chunk);
 //< init-chunk-h
 //> free-chunk-h
 void freeChunk(Chunk* chunk);
+// chunk.h
+int getLine(Chunk* chunk, int instruction);
 //< free-chunk-h
 /* Chunks of Bytecode write-chunk-h < Chunks of Bytecode write-chunk-with-line-h
 void writeChunk(Chunk* chunk, uint8_t byte);
