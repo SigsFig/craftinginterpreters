@@ -30,16 +30,19 @@ VM vm; // [one]
 static Value clockNative(int argCount, Value* args) {
   return NUMBER_VAL((double)clock() / CLOCKS_PER_SEC);
 }
+
+typedef struct {
+  Chunk* chunk;
+  uint8_t* ip;
+  Value* stack;
+  int stackCount;
+  int stackCapacity;
+} VM;
+
 //< Calls and Functions clock-native
 //> reset-stack
 static void resetStack() {
-  vm.stackTop = vm.stack;
-//> Calls and Functions reset-frame-count
-  vm.frameCount = 0;
-//< Calls and Functions reset-frame-count
-//> Closures init-open-upvalues
-  vm.openUpvalues = NULL;
-//< Closures init-open-upvalues
+  vm.stackCount = 0;
 }
 //< reset-stack
 //> Types of Values runtime-error
@@ -96,40 +99,9 @@ static void defineNative(const char* name, NativeFn function) {
 //< Calls and Functions define-native
 
 void initVM() {
-//> call-reset-stack
+  vm.stack = NULL;
+  vm.stackCapacity = 0;
   resetStack();
-//< call-reset-stack
-//> Strings init-objects-root
-  vm.objects = NULL;
-//< Strings init-objects-root
-//> Garbage Collection init-gc-fields
-  vm.bytesAllocated = 0;
-  vm.nextGC = 1024 * 1024;
-//< Garbage Collection init-gc-fields
-//> Garbage Collection init-gray-stack
-
-  vm.grayCount = 0;
-  vm.grayCapacity = 0;
-  vm.grayStack = NULL;
-//< Garbage Collection init-gray-stack
-//> Global Variables init-globals
-
-  initTable(&vm.globals);
-//< Global Variables init-globals
-//> Hash Tables init-strings
-  initTable(&vm.strings);
-//< Hash Tables init-strings
-//> Methods and Initializers init-init-string
-
-//> null-init-string
-  vm.initString = NULL;
-//< null-init-string
-  vm.initString = copyString("init", 4);
-//< Methods and Initializers init-init-string
-//> Calls and Functions define-native-clock
-
-  defineNative("clock", clockNative);
-//< Calls and Functions define-native-clock
 }
 
 void freeVM() {
@@ -148,14 +120,20 @@ void freeVM() {
 }
 //> push
 void push(Value value) {
-  *vm.stackTop = value;
-  vm.stackTop++;
+  if (vm.stackCapacity < vm.stackCount + 1) {
+    int oldCapacity = vm.stackCapacity;
+    vm.stackCapacity = GROW_CAPACITY(oldCapacity);
+    vm.stack = GROW_ARRAY(Value, vm.stack, oldCapacity, vm.stackCapacity);
+  }
+
+  vm.stack[vm.stackCount] = value;
+  vm.stackCount++;
 }
 //< push
 //> pop
 Value pop() {
-  vm.stackTop--;
-  return *vm.stackTop;
+  vm.stackCount--;
+  return vm.stack[vm.stackCount];
 }
 //< pop
 //> Types of Values peek
@@ -451,7 +429,7 @@ static InterpretResult run() {
 #ifdef DEBUG_TRACE_EXECUTION
 //> trace-stack
     printf("          ");
-    for (Value* slot = vm.stack; slot < vm.stackTop; slot++) {
+    for (Value *slot = vm.stack; slot < vm.stack + vm.stackCount; slot++) {
       printf("[ ");
       printValue(*slot);
       printf(" ]");
