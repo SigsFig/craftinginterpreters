@@ -36,6 +36,7 @@ typedef struct {
 typedef enum {
   PREC_NONE,
   PREC_ASSIGNMENT,  // =
+  PREC_CONDITIONAL,
   PREC_OR,          // or
   PREC_AND,         // and
   PREC_EQUALITY,    // == !=
@@ -699,6 +700,13 @@ static void or_(bool canAssign) {
   parsePrecedence(PREC_OR);
   patchJump(endJump);
 }
+
+static void conditional() {
+  parsePrecedence(compiler, PREC_CONDITIONAL);
+  consume(compiler, TOKEN_COLON, "Expect ':' after then branch of conditional operator.");
+  parsePrecedence(compiler, PREC_ASSIGNMENT);
+}
+
 //< Jumping Back and Forth or
 /* Strings parse-string < Global Variables string
 static void string() {
@@ -870,6 +878,7 @@ ParseRule rules[] = {
   [TOKEN_LEFT_BRACE]    = {NULL,     NULL,   PREC_NONE}, // [big]
   [TOKEN_RIGHT_BRACE]   = {NULL,     NULL,   PREC_NONE},
   [TOKEN_COMMA]         = {NULL,     NULL,   PREC_NONE},
+  [TOKEN_COLON]         = {NULL,     NULL,   PREC_NONE},
 /* Compiling Expressions rules < Classes and Instances table-dot
   [TOKEN_DOT]           = {NULL,     NULL,   PREC_NONE},
 */
@@ -949,6 +958,7 @@ ParseRule rules[] = {
 */
 //> Jumping Back and Forth table-or
   [TOKEN_OR]            = {NULL,     or_,    PREC_OR},
+  [TOKEN_QUESTION]      = {NULL,     conditional,   PREC_CONDITIONAL},
 //< Jumping Back and Forth table-or
   [TOKEN_PRINT]         = {NULL,     NULL,   PREC_NONE},
   [TOKEN_RETURN]        = {NULL,     NULL,   PREC_NONE},
