@@ -143,18 +143,11 @@ static uint32_t hashString(const char* key, int length) {
 }
 //< Hash Tables hash-string
 //> take-string
-ObjString* makeString(int length) {
-  ObjString* string = (ObjString*)allocateObject(
-      sizeof(ObjString) + length + 1, OBJ_STRING);
+ObjString* makeString(bool ownsChars, char* chars, int length) {
+  ObjString* string = ALLOCATE_OBJ(ObjString, OBJ_STRING);
+  string->ownsChars = ownsChars;
   string->length = length;
-  return string;
-}
-//< take-string
-ObjString* copyString(const char* chars, int length) {
-  ObjString* string = makeString(length);
-
-  memcpy(string->chars, chars, length);
-  string->chars[length] = '\0';
+  string->chars = chars;
 
   return string;
 }
@@ -187,11 +180,12 @@ static void concatenate() {
   ObjString* a = AS_STRING(pop());
 
   int length = a->length + b->length;
-  ObjString* result = makeString(length);
-  memcpy(result->chars, a->chars, a->length);
-  memcpy(result->chars + a->length, b->chars, b->length);
-  result->chars[length] = '\0';
+  char* chars = ALLOCATE(char, length + 1);
+  memcpy(chars, a->chars, a->length);
+  memcpy(chars + a->length, b->chars, b->length);
+  chars[length] = '\0';
 
+  ObjString* result = makeString(true, chars, length); // <--
   push(OBJ_VAL(result));
 }
 
@@ -231,7 +225,7 @@ void printObject(Value value) {
       break;
 //< Calls and Functions print-native
     case OBJ_STRING:
-      printf("%s", AS_CSTRING(value));
+      printf("%.*s", AS_STRING(value)->length, AS_CSTRING(value));
       break;
 //> Closures print-upvalue
     case OBJ_UPVALUE:
