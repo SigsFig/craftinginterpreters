@@ -414,15 +414,17 @@ static void parsePrecedence(Precedence precedence);
 //< Compiling Expressions forward-declarations
 //> Global Variables identifier-constant
 static uint8_t identifierConstant(Token* name) {
-  ObjString* string = copyString(name->start, name->length);
-  Value indexValue;
-  if (tableGet(&stringConstants, string, &indexValue)) {
-    return (uint8_t)AS_NUMBER(indexValue);
+  Value index;
+  ObjString* identifier = copyString(name->start, name->length);
+  if (tableGet(&vm.globalNames, identifier, &index)) {
+    return (uint8_t)AS_NUMBER(index);
   }
 
-  uint8_t index = makeConstant(OBJ_VAL(string));
-  tableSet(&stringConstants, string, NUMBER_VAL((double)index));
-  return index;
+  uint8_t newIndex = (uint8_t)vm.globalValues.count;
+  writeValueArray(&vm.globalValues, UNDEFINED_VAL);
+
+  tableSet(&vm.globalNames, identifier, NUMBER_VAL((double)newIndex));
+  return newIndex;
 }
 //< Global Variables identifier-constant
 //> Local Variables identifiers-equal
