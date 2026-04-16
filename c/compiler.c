@@ -132,6 +132,7 @@ Compiler* current = NULL;
 //< Local Variables current-compiler
 //> Methods and Initializers current-class
 ClassCompiler* currentClass = NULL;
+Table StringConstants;
 //< Methods and Initializers current-class
 //> Compiling Expressions compiling-chunk
 /* Compiling Expressions compiling-chunk < Calls and Functions current-chunk
@@ -413,8 +414,15 @@ static void parsePrecedence(Precedence precedence);
 //< Compiling Expressions forward-declarations
 //> Global Variables identifier-constant
 static uint8_t identifierConstant(Token* name) {
-  return makeConstant(OBJ_VAL(copyString(name->start,
-                                         name->length)));
+  ObjString* string = copyString(name->start, name->length);
+  Value indexValue;
+  if (tableGet(&stringConstants, string, &indexValue)) {
+    return (uint8_t)AS_NUMBER(indexValue);
+  }
+
+  uint8_t index = makeConstant(OBJ_VAL(string));
+  tableSet(&stringConstants, string, NUMBER_VAL((double)index));
+  return index;
 }
 //< Global Variables identifier-constant
 //> Local Variables identifiers-equal
@@ -1457,9 +1465,24 @@ static void statement() {
 /* Scanning on Demand compiler-c < Compiling Expressions compile-signature
 void compile(const char* source) {
 */
-/* Compiling Expressions compile-signature < Calls and Functions compile-signature
 bool compile(const char* source, Chunk* chunk) {
-*/
+  initScanner(source);
+
+  compilingChunk = chunk;
+  parser.hadError = false;
+  parser.panicMode = false;
+  initTable(&stringConstants);
+
+  advance();
+
+  while (!match(TOKEN_EOF)) {
+    declaration();
+  }
+
+  endCompiler();
+  freeTable(&stringConstants);
+  return !parser.hadError;
+}
 //> Calls and Functions compile-signature
 ObjFunction* compile(const char* source) {
 //< Calls and Functions compile-signature
