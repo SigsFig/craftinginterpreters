@@ -101,7 +101,8 @@ typedef enum {
   VAL_NIL, // [user-types]
   VAL_NUMBER,
 //> Strings val-obj
-  VAL_OBJ
+  VAL_OBJ,
+  VAL_EMPTY
 //< Strings val-obj
 } ValueType;
 
@@ -128,6 +129,7 @@ typedef struct {
 #define IS_NUMBER(value)  ((value).type == VAL_NUMBER)
 //> Strings is-obj
 #define IS_OBJ(value)     ((value).type == VAL_OBJ)
+#define IS_EMPTY(value)   ((value).type == VAL_EMPTY)
 //< Strings is-obj
 //< Types of Values is-macros
 //> Types of Values as-macros
@@ -145,6 +147,7 @@ typedef struct {
 #define NUMBER_VAL(value) ((Value){VAL_NUMBER, {.number = value}})
 //> Strings obj-val
 #define OBJ_VAL(object)   ((Value){VAL_OBJ, {.obj = (Obj*)object}})
+#define EMPTY_VAL         ((Value){VAL_EMPTY, {.number = 0}})
 //< Strings obj-val
 //< Types of Values value-macros
 //> Optimization end-if-nan-boxing
@@ -167,6 +170,7 @@ bool valuesEqual(Value a, Value b);
 void initValueArray(ValueArray* array);
 void writeValueArray(ValueArray* array, Value value);
 void freeValueArray(ValueArray* array);
+uint32_t hashValue(Value value);
 //< array-fns-h
 //> print-value-h
 void printValue(Value value);
