@@ -16,9 +16,10 @@ class Scanner {
     keywords = new HashMap<>();
     keywords.put("and",     AND);
     keywords.put("break",   BREAK);
-    keywords.put("case",    CASE);
-    keywords.put("class",   CLASS);
-    keywords.put("default", DEFAULT);
+    keywords.put("case",     CASE);
+    keywords.put("class",    CLASS);
+    keywords.put("continue", CONTINUE);
+    keywords.put("default",  DEFAULT);
     keywords.put("else",   ELSE);
     keywords.put("false",  FALSE);
     keywords.put("for",    FOR);
