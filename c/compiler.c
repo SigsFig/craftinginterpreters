@@ -17,6 +17,7 @@
 
 #ifdef DEBUG_PRINT_CODE
 #include "debug.h"
+#define MAX_CASES 256
 #endif
 //< Compiling Expressions include-debug
 //> Compiling Expressions parser
@@ -1352,6 +1353,66 @@ static void returnStatement() {
     emitByte(OP_RETURN);
   }
 }
+
+static void switchStatement() {
+  consume(TOKEN_LEFT_PAREN, "Expect '(' after 'switch'.");
+  expression();
+  consume(TOKEN_RIGHT_PAREN, "Expect ')' after value.");
+  consume(TOKEN_LEFT_BRACE, "Expect '{' before switch cases.");
+
+  int state = 0; 
+  int caseCount = 0;
+  int previousCaseSkip = -1;
+
+  while (!match(TOKEN_RIGHT_BRACE) && !check(TOKEN_EOF)) {
+    if (match(TOKEN_CASE) || match(TOKEN_DEFAULT)) {
+      TokenType caseType = parser.previous.type;
+
+      if (state == 2) {
+        error("Can't have another case or default after the default case.");
+      }
+
+      if (state == 1) {
+        caseEnds[caseCount++] = emitJump(OP_JUMP);
+        patchJump(previousCaseSkip);
+        emitByte(OP_POP);
+      }
+
+      if (caseType == TOKEN_CASE) {
+        state = 1;
+        emitByte(OP_DUP);
+        expression();
+
+        consume(TOKEN_COLON, "Expect ':' after case value.");
+
+        emitByte(OP_EQUAL);
+        previousCaseSkip = emitJump(OP_JUMP_IF_FALSE);
+        emitByte(OP_POP);
+      } else {
+        state = 2;
+        consume(TOKEN_COLON, "Expect ':' after default.");
+        previousCaseSkip = -1;
+      }
+    } else {
+      if (state == 0) {
+        error("Can't have statements before any case.");
+      }
+      statement();
+    }
+  }
+
+  if (state == 1) {
+    patchJump(previousCaseSkip);
+    emitByte(OP_POP);
+  }
+
+  for (int i = 0; i < caseCount; i++) {
+    patchJump(caseEnds[i]);
+  }
+
+  emitByte(OP_POP); 
+}
+
 //< Calls and Functions return-statement
 //> Jumping Back and Forth while-statement
 static void whileStatement() {
@@ -1447,7 +1508,10 @@ static void statement() {
     returnStatement();
 //< Calls and Functions match-return
 //> Jumping Back and Forth parse-while
-  } else if (match(TOKEN_WHILE)) {
+  }  else if (match(TOKEN_SWITCH)) {
+    switchStatement();
+  }
+  else if (match(TOKEN_WHILE)) {
     whileStatement();
 //< Jumping Back and Forth parse-while
 //> Local Variables parse-block
