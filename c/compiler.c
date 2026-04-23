@@ -17,8 +17,10 @@
 
 #ifdef DEBUG_PRINT_CODE
 #include "debug.h"
-#define MAX_CASES 256
 #endif
+
+#define MAX_CASES 256
+#define MAX_BREAKS 256
 //< Compiling Expressions include-debug
 //> Compiling Expressions parser
 
@@ -53,6 +55,11 @@ typedef enum {
 
 int innermostLoopStart = -1;
 int innermostLoopScopeDepth = 0;
+
+// Break jump stack: each loop pushes its start index, pops on exit.
+int breakJumpStack[MAX_BREAKS];
+int breakJumpCount = 0;
+int innermostBreakStart = 0;
 
 //< parse-fn-type
 /* Compiling Expressions parse-fn-type < Global Variables parse-fn-type
@@ -1244,10 +1251,13 @@ static void forStatement() {
     expressionStatement();
   }
 
-  int surroundingLoopStart = innermostLoopStart; // <--
-  int surroundingLoopScopeDepth = innermostLoopScopeDepth; // <--
-  innermostLoopStart = currentChunk()->count; // <--
-  innermostLoopScopeDepth = current->scopeDepth; // <--
+  int surroundingLoopStart = innermostLoopStart;
+  int surroundingLoopScopeDepth = innermostLoopScopeDepth;
+  innermostLoopStart = currentChunk()->count;
+  innermostLoopScopeDepth = current->scopeDepth;
+
+  int surroundingBreakStart = innermostBreakStart;
+  innermostBreakStart = breakJumpCount;
 
   int exitJump = -1;
   if (!match(TOKEN_SEMICOLON)) {
@@ -1281,8 +1291,15 @@ static void forStatement() {
     emitByte(OP_POP); // Condition.
   }
 
-  innermostLoopStart = surroundingLoopStart; // <--
-  innermostLoopScopeDepth = surroundingLoopScopeDepth; // <--
+  innermostLoopStart = surroundingLoopStart;
+  innermostLoopScopeDepth = surroundingLoopScopeDepth;
+
+  // Patch break jumps to here (for now for-loops have no else clause).
+  for (int i = innermostBreakStart; i < breakJumpCount; i++) {
+    patchJump(breakJumpStack[i]);
+  }
+  breakJumpCount = innermostBreakStart;
+  innermostBreakStart = surroundingBreakStart;
 
   endScope();
 }
@@ -1352,8 +1369,9 @@ static void switchStatement() {
   consume(TOKEN_RIGHT_PAREN, "Expect ')' after value.");
   consume(TOKEN_LEFT_BRACE, "Expect '{' before switch cases.");
 
-  int state = 0; 
+  int state = 0;
   int caseCount = 0;
+  int caseEnds[MAX_CASES];
   int previousCaseSkip = -1;
 
   while (!match(TOKEN_RIGHT_BRACE) && !check(TOKEN_EOF)) {
@@ -1423,12 +1441,37 @@ static void continueStatement() {
   emitLoop(innermostLoopStart);
 }
 
+static void breakStatement() {
+  if (innermostLoopStart == -1) {
+    error("Can't use 'break' outside of a loop.");
+  }
+
+  consume(TOKEN_SEMICOLON, "Expect ';' after 'break'.");
+
+  // Discard any locals created inside the loop.
+  for (int i = current->localCount - 1;
+       i >= 0 && current->locals[i].depth > innermostLoopScopeDepth;
+       i--) {
+    emitByte(OP_POP);
+  }
+
+  // Forward jump; patched to after the loop (and its else clause).
+  if (breakJumpCount >= MAX_BREAKS) {
+    error("Too many 'break' statements in one loop.");
+    return;
+  }
+  breakJumpStack[breakJumpCount++] = emitJump(OP_JUMP);
+}
+
 //< Calls and Functions return-statement
 //> Jumping Back and Forth while-statement
 static void whileStatement() {
-//> loop-start
   int loopStart = currentChunk()->count;
-//< loop-start
+
+  // Save and reset break-jump tracking for this loop.
+  int surroundingBreakStart = innermostBreakStart;
+  innermostBreakStart = breakJumpCount;
+
   consume(TOKEN_LEFT_PAREN, "Expect '(' after 'while'.");
   expression();
   consume(TOKEN_RIGHT_PAREN, "Expect ')' after condition.");
@@ -1436,12 +1479,19 @@ static void whileStatement() {
   int exitJump = emitJump(OP_JUMP_IF_FALSE);
   emitByte(OP_POP);
   statement();
-//> loop
   emitLoop(loopStart);
-//< loop
 
+  // Condition was false: land here, then run else (if any).
   patchJump(exitJump);
   emitByte(OP_POP);
+  if (match(TOKEN_ELSE)) statement();
+
+  // Patch all break jumps to here (after the else block).
+  for (int i = innermostBreakStart; i < breakJumpCount; i++) {
+    patchJump(breakJumpStack[i]);
+  }
+  breakJumpCount = innermostBreakStart;
+  innermostBreakStart = surroundingBreakStart;
 }
 //< Jumping Back and Forth while-statement
 //> Global Variables synchronize
@@ -1506,8 +1556,10 @@ static void statement() {
   if (match(TOKEN_PRINT)) {
     printStatement();
 //> Jumping Back and Forth parse-for
+  } else if (match(TOKEN_BREAK)) {
+    breakStatement();
   } else if (match(TOKEN_CONTINUE)) {
-    continueStatement(); 
+    continueStatement();
   } else if (match(TOKEN_FOR)) {
     forStatement();
 //< Jumping Back and Forth parse-for
