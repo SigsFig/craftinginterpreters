@@ -123,7 +123,7 @@ typedef struct Compiler {
   FunctionType type;
 
 //< Calls and Functions function-fields
-  Local locals[UINT8_COUNT];
+  Local locals[UINT16_COUNT];
   int localCount;
 //> Closures upvalues-array
   Upvalue upvalues[UINT8_COUNT];
@@ -244,6 +244,17 @@ static void emitBytes(uint8_t byte1, uint8_t byte2) {
   emitByte(byte2);
 }
 //< Compiling Expressions emit-bytes
+
+// Emit a local-variable access, using the long (2-byte) form for slots >= 256.
+static void emitLocalOp(uint8_t shortOp, uint8_t longOp, int slot) {
+  if (slot < UINT8_COUNT) {
+    emitBytes(shortOp, (uint8_t)slot);
+  } else {
+    emitByte(longOp);
+    emitByte((uint8_t)(slot & 0xff));
+    emitByte((uint8_t)((slot >> 8) & 0xff));
+  }
+}
 //> Jumping Back and Forth emit-loop
 static void emitLoop(int loopStart) {
   emitByte(OP_LOOP);
@@ -517,7 +528,7 @@ static int resolveUpvalue(Compiler* compiler, Token* name) {
 //> Local Variables add-local
 static void addLocal(Token name, bool isConst) {
 //> too-many-locals
-  if (current->localCount == UINT8_COUNT) {
+  if (current->localCount == UINT16_COUNT) {
     error("Too many local variables in function.");
     return;
   }
@@ -791,15 +802,17 @@ static void namedVariable(Token name, bool canAssign) {
       }
     }
     expression();
-    emitBytes(setOp, (uint8_t)arg);
-//< Local Variables emit-set
+    if (setOp == OP_SET_LOCAL) {
+      emitLocalOp(OP_SET_LOCAL, OP_SET_LOCAL_LONG, arg);
+    } else {
+      emitBytes(setOp, (uint8_t)arg);
+    }
   } else {
-/* Global Variables named-variable < Local Variables emit-get
-    emitBytes(OP_GET_GLOBAL, arg);
-*/
-//> Local Variables emit-get
-    emitBytes(getOp, (uint8_t)arg);
-//< Local Variables emit-get
+    if (getOp == OP_GET_LOCAL) {
+      emitLocalOp(OP_GET_LOCAL, OP_GET_LOCAL_LONG, arg);
+    } else {
+      emitBytes(getOp, (uint8_t)arg);
+    }
   }
 //< named-variable
 }

@@ -490,15 +490,19 @@ static InterpretResult run() {
 //> Local Variables interpret-set-local
       case OP_SET_LOCAL: {
         uint8_t slot = READ_BYTE();
-/* Local Variables interpret-set-local < Calls and Functions set-local
-        vm.stack[slot] = peek(0);
-*/
-//> Calls and Functions set-local
         frame->slots[slot] = peek(0);
-//< Calls and Functions set-local
         break;
       }
-//< Local Variables interpret-set-local
+      case OP_GET_LOCAL_LONG: {
+        uint16_t slot = (uint16_t)(READ_BYTE() | (READ_BYTE() << 8));
+        push(frame->slots[slot]);
+        break;
+      }
+      case OP_SET_LOCAL_LONG: {
+        uint16_t slot = (uint16_t)(READ_BYTE() | (READ_BYTE() << 8));
+        frame->slots[slot] = peek(0);
+        break;
+      }
 //> Global Variables interpret-get-global
       case OP_GET_GLOBAL: {
         Value value = vm.globalValues.values[READ_BYTE()];
