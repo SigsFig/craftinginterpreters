@@ -61,6 +61,10 @@ int breakJumpStack[MAX_BREAKS];
 int breakJumpCount = 0;
 int innermostBreakStart = 0;
 
+// Compile-time set of global names declared with 'val'.
+static Token constGlobals[UINT8_COUNT];
+static int constGlobalCount = 0;
+
 //< parse-fn-type
 /* Compiling Expressions parse-fn-type < Global Variables parse-fn-type
 typedef void (*ParseFn)();
@@ -84,6 +88,7 @@ typedef struct {
 //> Closures is-captured-field
   bool isCaptured;
 //< Closures is-captured-field
+  bool isConst;
 } Local;
 //< Local Variables local-struct
 //> Closures upvalue-struct
@@ -510,7 +515,7 @@ static int resolveUpvalue(Compiler* compiler, Token* name) {
 }
 //< Closures resolve-upvalue
 //> Local Variables add-local
-static void addLocal(Token name) {
+static void addLocal(Token name, bool isConst) {
 //> too-many-locals
   if (current->localCount == UINT8_COUNT) {
     error("Too many local variables in function.");
@@ -520,36 +525,31 @@ static void addLocal(Token name) {
 //< too-many-locals
   Local* local = &current->locals[current->localCount++];
   local->name = name;
-/* Local Variables add-local < Local Variables declare-undefined
-  local->depth = current->scopeDepth;
-*/
-//> declare-undefined
   local->depth = -1;
-//< declare-undefined
-//> Closures init-is-captured
   local->isCaptured = false;
-//< Closures init-is-captured
+  local->isConst = isConst;
 }
 //< Local Variables add-local
 //> Local Variables declare-variable
-static void declareVariable() {
+static void declareVariableConst(bool isConst) {
   if (current->scopeDepth == 0) return;
 
   Token* name = &parser.previous;
-//> existing-in-scope
   for (int i = current->localCount - 1; i >= 0; i--) {
     Local* local = &current->locals[i];
     if (local->depth != -1 && local->depth < current->scopeDepth) {
-      break; // [negative]
+      break;
     }
-    
     if (identifiersEqual(name, &local->name)) {
       error("Already a variable with this name in this scope.");
     }
   }
 
-//< existing-in-scope
-  addLocal(*name);
+  addLocal(*name, isConst);
+}
+
+static void declareVariable() {
+  declareVariableConst(false);
 }
 //< Local Variables declare-variable
 //> Global Variables parse-variable
@@ -776,12 +776,21 @@ static void namedVariable(Token name, bool canAssign) {
 */
 //> named-variable-can-assign
   if (canAssign && match(TOKEN_EQUAL)) {
-//< named-variable-can-assign
+    // Const check for locals.
+    if (setOp == OP_SET_LOCAL &&
+        current->locals[arg].isConst) {
+      error("Can't assign to a 'val' variable.");
+    }
+    // Const check for globals.
+    if (setOp == OP_SET_GLOBAL) {
+      for (int i = 0; i < constGlobalCount; i++) {
+        if (identifiersEqual(&name, &constGlobals[i])) {
+          error("Can't assign to a 'val' variable.");
+          break;
+        }
+      }
+    }
     expression();
-/* Global Variables named-variable < Local Variables emit-set
-    emitBytes(OP_SET_GLOBAL, arg);
-*/
-//> Local Variables emit-set
     emitBytes(setOp, (uint8_t)arg);
 //< Local Variables emit-set
   } else {
@@ -1231,6 +1240,32 @@ static void varDeclaration() {
   defineVariable(global);
 }
 //< Global Variables var-declaration
+
+static void valDeclaration() {
+  consume(TOKEN_IDENTIFIER, "Expect variable name.");
+
+  if (current->scopeDepth == 0) {
+    // Global val: record the name for compile-time const checking.
+    if (constGlobalCount < UINT8_COUNT) {
+      constGlobals[constGlobalCount++] = parser.previous;
+    }
+  } else {
+    // Local val: declareVariable with isConst = true.
+    declareVariableConst(true);
+  }
+
+  uint8_t global = (current->scopeDepth > 0) ? 0
+                   : identifierConstant(&parser.previous);
+
+  if (match(TOKEN_EQUAL)) {
+    expression();
+  } else {
+    emitByte(OP_NIL);
+  }
+  consume(TOKEN_SEMICOLON, "Expect ';' after variable declaration.");
+
+  defineVariable(global);
+}
 //> Global Variables expression-statement
 static void expressionStatement() {
   expression();
@@ -1535,9 +1570,9 @@ static void declaration() {
   if (match(TOKEN_VAR)) {
 */
   } else if (match(TOKEN_VAR)) {
-//< Calls and Functions match-fun
-//> match-var
     varDeclaration();
+  } else if (match(TOKEN_VAL)) {
+    valDeclaration();
   } else {
     statement();
   }
