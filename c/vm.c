@@ -43,6 +43,26 @@ static bool sqrtNative(int argCount, Value* args) {
   return true;
 }
 
+static bool floorNative(int argCount, Value* args) {
+  if (!IS_NUMBER(args[0])) {
+    args[-1] = OBJ_VAL(copyString(
+        "Argument to floor() must be a number.", 37));
+    return false;
+  }
+  args[-1] = NUMBER_VAL(floor(AS_NUMBER(args[0])));
+  return true;
+}
+
+static bool strlenNative(int argCount, Value* args) {
+  if (!IS_STRING(args[0])) {
+    args[-1] = OBJ_VAL(copyString(
+        "Argument to strlen() must be a string.", 38));
+    return false;
+  }
+  args[-1] = NUMBER_VAL(AS_STRING(args[0])->length);
+  return true;
+}
+
 typedef struct {
   Chunk* chunk;
   uint8_t* ip;
@@ -116,6 +136,8 @@ void initVM() {
   resetStack();
   defineNative("clock", clockNative);
   defineNative("sqrt", sqrtNative);
+  defineNative("floor", floorNative);
+  defineNative("strlen", strlenNative);
 }
 
 void freeVM() {
