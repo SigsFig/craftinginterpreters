@@ -1291,9 +1291,15 @@ static void expressionStatement() {
 static void forStatement() {
   beginScope();
 
+  int loopVariable = -1;
+  Token loopVariableName;
+  loopVariableName.start = NULL;
+
   consume(TOKEN_LEFT_PAREN, "Expect '(' after 'for'.");
   if (match(TOKEN_VAR)) {
+    loopVariableName = parser.current;
     varDeclaration();
+    loopVariable = current->localCount - 1;
   } else if (match(TOKEN_SEMICOLON)) {
     // No initializer.
   } else {
@@ -1331,7 +1337,23 @@ static void forStatement() {
     patchJump(bodyJump);
   }
 
+  int innerVariable = -1;
+  if (loopVariable != -1) {
+    beginScope();
+    emitBytes(OP_GET_LOCAL, (uint8_t)loopVariable);
+    addLocal(loopVariableName, false);
+    markInitialized();
+    innerVariable = current->localCount - 1;
+  }
+
   statement();
+
+  if (loopVariable != -1) {
+    emitBytes(OP_GET_LOCAL, (uint8_t)innerVariable);
+    emitBytes(OP_SET_LOCAL, (uint8_t)loopVariable);
+    emitByte(OP_POP);
+    endScope();
+  }
 
   emitLoop(innermostLoopStart); // <--
 
