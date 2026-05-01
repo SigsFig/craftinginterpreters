@@ -1118,19 +1118,20 @@ static void function(FunctionType type) {
   block();
 
   ObjFunction* function = endCompiler();
-/* Calls and Functions compile-function < Closures emit-closure
-  emitBytes(OP_CONSTANT, makeConstant(OBJ_VAL(function)));
-*/
 //> Closures emit-closure
-  emitBytes(OP_CLOSURE, makeConstant(OBJ_VAL(function)));
-//< Closures emit-closure
+  uint8_t functionConstant = makeConstant(OBJ_VAL(function));
+  if (function->upvalueCount > 0) {
+    emitBytes(OP_CLOSURE, functionConstant);
 //> Closures capture-upvalues
-
-  for (int i = 0; i < function->upvalueCount; i++) {
-    emitByte(compiler.upvalues[i].isLocal ? 1 : 0);
-    emitByte(compiler.upvalues[i].index);
-  }
+    for (int i = 0; i < function->upvalueCount; i++) {
+      emitByte(compiler.upvalues[i].isLocal ? 1 : 0);
+      emitByte(compiler.upvalues[i].index);
+    }
 //< Closures capture-upvalues
+  } else {
+    emitBytes(OP_CONSTANT, functionConstant);
+  }
+//< Closures emit-closure
 }
 //< Calls and Functions compile-function
 //> Methods and Initializers method
