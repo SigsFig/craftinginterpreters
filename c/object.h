@@ -12,7 +12,7 @@
 #include "value.h"
 //> obj-type-macro
 
-#define OBJ_TYPE(value)        (AS_OBJ(value)->type)
+#define OBJ_TYPE(value)        objType(AS_OBJ(value))
 //< obj-type-macro
 //> is-string
 
@@ -89,13 +89,7 @@ typedef enum {
 //< obj-type
 
 struct Obj {
-  ObjType type;
-//> Garbage Collection is-marked-field
-  bool isMarked;
-//< Garbage Collection is-marked-field
-//> next-field
-  struct Obj* next;
-//< next-field
+  uint64_t header;
 };
 //> Calls and Functions obj-function
 
@@ -212,8 +206,30 @@ void printObject(Value value);
 
 //< copy-string-h
 //> is-obj-type
+static inline ObjType objType(Obj* object) {
+  return (ObjType)((object->header >> 56) & 0xff);
+}
+
+static inline bool isMarked(Obj* object) {
+  return (bool)((object->header >> 48) & 0x01);
+}
+
+static inline Obj* objNext(Obj* object) {
+  return (Obj*)(object->header & 0x0000ffffffffffff);
+}
+
+static inline void setIsMarked(Obj* object, bool isMarked) {
+  object->header = (object->header & 0xff00ffffffffffff) |
+      ((uint64_t)isMarked << 48);
+}
+
+static inline void setObjNext(Obj* object, Obj* next) {
+  object->header = (object->header & 0xffff000000000000) |
+      (uint64_t)next;
+}
+
 static inline bool isObjType(Value value, ObjType type) {
-  return IS_OBJ(value) && AS_OBJ(value)->type == type;
+  return IS_OBJ(value) && objType(AS_OBJ(value)) == type;
 }
 
 //< is-obj-type

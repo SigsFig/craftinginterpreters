@@ -53,7 +53,7 @@ void* reallocate(void* pointer, size_t oldSize, size_t newSize) {
 void markObject(Obj* object) {
   if (object == NULL) return;
 //> check-is-marked
-  if (object->isMarked) return;
+  if (isMarked(object)) return;
 
 //< check-is-marked
 //> log-mark-object
@@ -64,7 +64,7 @@ void markObject(Obj* object) {
 #endif
 
 //< log-mark-object
-  object->isMarked = true;
+  setIsMarked(object, true);
 //> add-to-gray-stack
 
   if (vm.grayCapacity < vm.grayCount + 1) {
@@ -103,7 +103,7 @@ static void blackenObject(Obj* object) {
 #endif
 
 //< log-blacken-object
-  switch (object->type) {
+  switch (objType(object)) {
 //> Methods and Initializers blacken-bound-method
     case OBJ_BOUND_METHOD: {
       ObjBoundMethod* bound = (ObjBoundMethod*)object;
@@ -163,11 +163,11 @@ static void blackenObject(Obj* object) {
 static void freeObject(Obj* object) {
 //> Garbage Collection log-free-object
 #ifdef DEBUG_LOG_GC
-  printf("%p free type %d\n", (void*)object, object->type);
+  printf("%p free type %d\n", (void*)object, objType(object));
 #endif
 
 //< Garbage Collection log-free-object
-  switch (object->type) {
+  switch (objType(object)) {
 //> Methods and Initializers free-bound-method
     case OBJ_BOUND_METHOD:
       FREE(ObjBoundMethod, object);
@@ -275,17 +275,17 @@ static void sweep() {
   Obj* previous = NULL;
   Obj* object = vm.objects;
   while (object != NULL) {
-    if (object->isMarked) {
+    if (isMarked(object)) {
 //> unmark
-      object->isMarked = false;
+      setIsMarked(object, false);
 //< unmark
       previous = object;
-      object = object->next;
+      object = objNext(object);
     } else {
       Obj* unreached = object;
-      object = object->next;
+      object = objNext(object);
       if (previous != NULL) {
-        previous->next = object;
+        setObjNext(previous, object);
       } else {
         vm.objects = object;
       }
@@ -339,7 +339,7 @@ void collectGarbage() {
 void freeObjects() {
   Obj* object = vm.objects;
   while (object != NULL) {
-    Obj* next = object->next;
+    Obj* next = objNext(object);
     freeObject(object);
     object = next;
   }
