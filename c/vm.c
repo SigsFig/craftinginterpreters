@@ -86,6 +86,17 @@ static bool setFieldNative(int argCount, Value* args) {
   return true;
 }
 
+static bool deleteFieldNative(int argCount, Value* args) {
+  if (argCount != 2) { args[-1] = NIL_VAL; return true; }
+  if (!IS_INSTANCE(args[0])) { args[-1] = NIL_VAL; return true; }
+  if (!IS_STRING(args[1])) { args[-1] = NIL_VAL; return true; }
+
+  ObjInstance* instance = AS_INSTANCE(args[0]);
+  tableDelete(&instance->fields, AS_STRING(args[1]));
+  args[-1] = NIL_VAL;
+  return true;
+}
+
 static bool hasFieldNative(int argCount, Value* args) {
   if (argCount != 2) { args[-1] = BOOL_VAL(false); return true; }
   if (!IS_INSTANCE(args[0])) { args[-1] = BOOL_VAL(false); return true; }
@@ -182,6 +193,7 @@ void initVM() {
   defineNative("strlen", strlenNative);
   defineNative("getField", getFieldNative);
   defineNative("setField", setFieldNative);
+  defineNative("deleteField", deleteFieldNative);
   defineNative("hasField", hasFieldNative);
 }
 
