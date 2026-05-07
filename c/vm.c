@@ -63,6 +63,29 @@ static bool strlenNative(int argCount, Value* args) {
   return true;
 }
 
+static bool getFieldNative(int argCount, Value* args) {
+  if (argCount != 2) { args[-1] = BOOL_VAL(false); return true; }
+  if (!IS_INSTANCE(args[0])) { args[-1] = BOOL_VAL(false); return true; }
+  if (!IS_STRING(args[1])) { args[-1] = BOOL_VAL(false); return true; }
+
+  ObjInstance* instance = AS_INSTANCE(args[0]);
+  Value value;
+  tableGet(&instance->fields, AS_STRING(args[1]), &value);
+  args[-1] = value;
+  return true;
+}
+
+static bool setFieldNative(int argCount, Value* args) {
+  if (argCount != 3) { args[-1] = BOOL_VAL(false); return true; }
+  if (!IS_INSTANCE(args[0])) { args[-1] = BOOL_VAL(false); return true; }
+  if (!IS_STRING(args[1])) { args[-1] = BOOL_VAL(false); return true; }
+
+  ObjInstance* instance = AS_INSTANCE(args[0]);
+  tableSet(&instance->fields, AS_STRING(args[1]), args[2]);
+  args[-1] = args[2];
+  return true;
+}
+
 static bool hasFieldNative(int argCount, Value* args) {
   if (argCount != 2) { args[-1] = BOOL_VAL(false); return true; }
   if (!IS_INSTANCE(args[0])) { args[-1] = BOOL_VAL(false); return true; }
@@ -157,6 +180,8 @@ void initVM() {
   defineNative("sqrt", sqrtNative);
   defineNative("floor", floorNative);
   defineNative("strlen", strlenNative);
+  defineNative("getField", getFieldNative);
+  defineNative("setField", setFieldNative);
   defineNative("hasField", hasFieldNative);
 }
 
