@@ -63,6 +63,17 @@ static bool strlenNative(int argCount, Value* args) {
   return true;
 }
 
+static bool hasFieldNative(int argCount, Value* args) {
+  if (argCount != 2) { args[-1] = BOOL_VAL(false); return true; }
+  if (!IS_INSTANCE(args[0])) { args[-1] = BOOL_VAL(false); return true; }
+  if (!IS_STRING(args[1])) { args[-1] = BOOL_VAL(false); return true; }
+
+  ObjInstance* instance = AS_INSTANCE(args[0]);
+  Value dummy;
+  args[-1] = BOOL_VAL(tableGet(&instance->fields, AS_STRING(args[1]), &dummy));
+  return true;
+}
+
 typedef struct {
   Chunk* chunk;
   uint8_t* ip;
@@ -146,6 +157,7 @@ void initVM() {
   defineNative("sqrt", sqrtNative);
   defineNative("floor", floorNative);
   defineNative("strlen", strlenNative);
+  defineNative("hasField", hasFieldNative);
 }
 
 void freeVM() {
