@@ -19,7 +19,7 @@
 static Obj* allocateObject(size_t size, ObjType type) {
   Obj* object = (Obj*)reallocate(NULL, 0, size);
 //> add-to-list
-  object->header = (unsigned long)vm.objects | (unsigned long)type << 56;
+  object->header = (unsigned long)vm.objects | (unsigned long)type << 56 | ((uint64_t)(!vm.markValue) << 48);
   vm.objects = object;
 //< add-to-list
 //> Garbage Collection debug-log-allocate

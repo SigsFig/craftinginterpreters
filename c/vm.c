@@ -187,6 +187,7 @@ void initVM() {
   vm.stack = NULL;
   vm.stackCapacity = 0;
   resetStack();
+  vm.markValue = true;
   defineNative("clock", clockNative);
   defineNative("sqrt", sqrtNative);
   defineNative("floor", floorNative);

@@ -53,7 +53,7 @@ void* reallocate(void* pointer, size_t oldSize, size_t newSize) {
 void markObject(Obj* object) {
   if (object == NULL) return;
 //> check-is-marked
-  if (isMarked(object)) return;
+  if (isMarked(object) == vm.markValue) return;
 
 //< check-is-marked
 //> log-mark-object
@@ -64,7 +64,7 @@ void markObject(Obj* object) {
 #endif
 
 //< log-mark-object
-  setIsMarked(object, true);
+  setIsMarked(object, vm.markValue);
 //> add-to-gray-stack
 
   if (vm.grayCapacity < vm.grayCount + 1) {
@@ -275,10 +275,7 @@ static void sweep() {
   Obj* previous = NULL;
   Obj* object = vm.objects;
   while (object != NULL) {
-    if (isMarked(object)) {
-//> unmark
-      setIsMarked(object, false);
-//< unmark
+    if (isMarked(object) == vm.markValue) {
       previous = object;
       object = objNext(object);
     } else {
@@ -321,6 +318,7 @@ void collectGarbage() {
 //> update-next-gc
 
   vm.nextGC = vm.bytesAllocated * GC_HEAP_GROW_FACTOR;
+  vm.markValue = !vm.markValue;
 //< update-next-gc
 //> log-after-collect
 

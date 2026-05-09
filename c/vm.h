@@ -71,6 +71,7 @@ typedef struct {
 
   size_t bytesAllocated;
   size_t nextGC;
+  bool markValue;
 //< Garbage Collection vm-fields
 //> Strings objects-root
   Obj* objects;
