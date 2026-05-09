@@ -90,6 +90,7 @@ typedef enum {
 
 struct Obj {
   uint64_t header;
+  uint32_t refCount;
 };
 //> Calls and Functions obj-function
 

@@ -36,6 +36,10 @@ void markObject(Obj* object);
 //< Garbage Collection mark-object-h
 //> Garbage Collection mark-value-h
 void markValue(Value value);
+void retainObject(Obj* object);
+void retainValue(Value value);
+void releaseObject(Obj* object);
+void releaseValue(Value value);
 //< Garbage Collection mark-value-h
 //> Garbage Collection collect-garbage-h
 void collectGarbage();

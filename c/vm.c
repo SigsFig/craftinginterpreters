@@ -420,6 +420,7 @@ static void closeUpvalues(Value* last) {
          vm.openUpvalues->location >= last) {
     ObjUpvalue* upvalue = vm.openUpvalues;
     upvalue->closed = *upvalue->location;
+    retainValue(upvalue->closed);
     upvalue->location = &upvalue->closed;
     vm.openUpvalues = upvalue->next;
   }
@@ -429,6 +430,7 @@ static void closeUpvalues(Value* last) {
 static void defineMethod(ObjString* name) {
   Value method = peek(0);
   ObjClass* klass = AS_CLASS(peek(1));
+  retainValue(method);
   tableSet(&klass->methods, name, method);
   pop();
 }
@@ -611,7 +613,10 @@ static InterpretResult run() {
       }
 
       case OP_DEFINE_GLOBAL: {
-        vm.globalValues.values[READ_BYTE()] = pop();
+        uint8_t index = READ_BYTE();
+        Value v = pop();
+        retainValue(v);
+        vm.globalValues.values[index] = v;
         break;
       }
 
@@ -622,6 +627,8 @@ static InterpretResult run() {
           runtimeError("Undefined variable.");
           return INTERPRET_RUNTIME_ERROR;
         }
+        releaseValue(vm.globalValues.values[index]);
+        retainValue(peek(0));
         vm.globalValues.values[index] = peek(0);
         break;
       }
@@ -683,7 +690,12 @@ static InterpretResult run() {
 
 //< set-not-instance
         ObjInstance* instance = AS_INSTANCE(peek(1));
-        tableSet(&instance->fields, READ_STRING(), peek(0));
+        ObjString* fieldName = READ_STRING();
+        Value oldValue = NIL_VAL;
+        tableGet(&instance->fields, fieldName, &oldValue);
+        releaseValue(oldValue);
+        retainValue(peek(0));
+        tableSet(&instance->fields, fieldName, peek(0));
         Value value = pop();
         pop();
         push(value);

@@ -49,6 +49,82 @@ void* reallocate(void* pointer, size_t oldSize, size_t newSize) {
 //< out-of-memory
   return result;
 }
+void retainObject(Obj* object) {
+  if (object == NULL) return;
+  object->refCount++;
+}
+
+void retainValue(Value value) {
+  if (IS_OBJ(value)) retainObject(AS_OBJ(value));
+}
+
+void releaseObject(Obj* object) {
+  if (object == NULL) return;
+  if (object->refCount > 0) object->refCount--;
+}
+
+void releaseValue(Value value) {
+  if (IS_OBJ(value)) releaseObject(AS_OBJ(value));
+}
+
+static void releaseChildren(Obj* object) {
+  switch (objType(object)) {
+    case OBJ_BOUND_METHOD: {
+      ObjBoundMethod* bound = (ObjBoundMethod*)object;
+      releaseValue(bound->receiver);
+      releaseObject((Obj*)bound->method);
+      break;
+    }
+    case OBJ_CLASS: {
+      ObjClass* klass = (ObjClass*)object;
+      releaseObject((Obj*)klass->name);
+      for (int i = 0; i < klass->methods.capacity; i++) {
+        Entry* entry = &klass->methods.entries[i];
+        if (!IS_EMPTY(entry->key)) releaseValue(entry->value);
+      }
+      break;
+    }
+    case OBJ_CLOSURE: {
+      ObjClosure* closure = (ObjClosure*)object;
+      releaseObject((Obj*)closure->function);
+      for (int i = 0; i < closure->upvalueCount; i++) {
+        releaseObject((Obj*)closure->upvalues[i]);
+      }
+      break;
+    }
+    case OBJ_FUNCTION: {
+      ObjFunction* function = (ObjFunction*)object;
+      releaseObject((Obj*)function->name);
+      for (int i = 0; i < function->chunk.constants.count; i++) {
+        releaseValue(function->chunk.constants.values[i]);
+      }
+      break;
+    }
+    case OBJ_INSTANCE: {
+      ObjInstance* instance = (ObjInstance*)object;
+      releaseObject((Obj*)instance->klass);
+      for (int i = 0; i < instance->fields.capacity; i++) {
+        Entry* entry = &instance->fields.entries[i];
+        if (!IS_EMPTY(entry->key)) {
+          releaseValue(entry->key);
+          releaseValue(entry->value);
+        }
+      }
+      break;
+    }
+    case OBJ_UPVALUE: {
+      ObjUpvalue* upvalue = (ObjUpvalue*)object;
+      if (upvalue->location == &upvalue->closed) {
+        releaseValue(upvalue->closed);
+      }
+      break;
+    }
+    case OBJ_NATIVE:
+    case OBJ_STRING:
+      break;
+  }
+}
+
 //> Garbage Collection mark-object
 void markObject(Obj* object) {
   if (object == NULL) return;
@@ -272,8 +348,16 @@ static void traceReferences() {
 //< Garbage Collection trace-references
 //> Garbage Collection sweep
 static void sweep() {
-  Obj* previous = NULL;
   Obj* object = vm.objects;
+  while (object != NULL) {
+    if (isMarked(object) != vm.markValue) {
+      releaseChildren(object);
+    }
+    object = objNext(object);
+  }
+
+  Obj* previous = NULL;
+  object = vm.objects;
   while (object != NULL) {
     if (isMarked(object) == vm.markValue) {
       previous = object;

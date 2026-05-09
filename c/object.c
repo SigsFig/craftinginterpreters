@@ -20,6 +20,7 @@ static Obj* allocateObject(size_t size, ObjType type) {
   Obj* object = (Obj*)reallocate(NULL, 0, size);
 //> add-to-list
   object->header = (unsigned long)vm.objects | (unsigned long)type << 56 | ((uint64_t)(!vm.markValue) << 48);
+  object->refCount = 0;
   vm.objects = object;
 //< add-to-list
 //> Garbage Collection debug-log-allocate
@@ -39,6 +40,8 @@ ObjBoundMethod* newBoundMethod(Value receiver,
                                        OBJ_BOUND_METHOD);
   bound->receiver = receiver;
   bound->method = method;
+  retainValue(receiver);
+  retainObject((Obj*)method);
   return bound;
 }
 //< Methods and Initializers new-bound-method
@@ -64,6 +67,7 @@ ObjClosure* newClosure(ObjFunction* function) {
 //< allocate-upvalue-array
   ObjClosure* closure = ALLOCATE_OBJ(ObjClosure, OBJ_CLOSURE);
   closure->function = function;
+  retainObject((Obj*)function);
 //> init-upvalue-fields
   closure->upvalues = upvalues;
   closure->upvalueCount = function->upvalueCount;
@@ -87,6 +91,7 @@ ObjFunction* newFunction() {
 ObjInstance* newInstance(ObjClass* klass) {
   ObjInstance* instance = ALLOCATE_OBJ(ObjInstance, OBJ_INSTANCE);
   instance->klass = klass;
+  retainObject((Obj*)klass);
   initTable(&instance->fields);
   return instance;
 }
