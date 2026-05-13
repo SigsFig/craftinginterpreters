@@ -1,0 +1,14 @@
+class A {
+  method(a, b) {
+    print "A.method " + a + " " + b;
+    inner(b, a);
+  }
+}
+
+class B < A {
+  method(a, b) {
+    print "B.method " + a + " " + b;
+  }
+}
+
+B().method("first", "second");

@@ -150,10 +150,6 @@ int disassembleInstruction(Chunk* chunk, int offset) {
     case OP_SET_PROPERTY:
       return constantInstruction("OP_SET_PROPERTY", chunk, offset);
 //< Classes and Instances disassemble-property-ops
-//> Superclasses disassemble-get-super
-    case OP_GET_SUPER:
-      return constantInstruction("OP_GET_SUPER", chunk, offset);
-//< Superclasses disassemble-get-super
 //> Types of Values disassemble-comparison
     case OP_EQUAL:
       return simpleInstruction("OP_EQUAL", offset);
@@ -202,10 +198,8 @@ int disassembleInstruction(Chunk* chunk, int offset) {
     case OP_INVOKE:
       return invokeInstruction("OP_INVOKE", chunk, offset);
 //< Methods and Initializers disassemble-invoke
-//> Superclasses disassemble-super-invoke
-    case OP_SUPER_INVOKE:
-      return invokeInstruction("OP_SUPER_INVOKE", chunk, offset);
-//< Superclasses disassemble-super-invoke
+    case OP_INNER:
+      return invokeInstruction("OP_INNER", chunk, offset);
 //> Closures disassemble-closure
     case OP_CLOSURE: {
       offset++;

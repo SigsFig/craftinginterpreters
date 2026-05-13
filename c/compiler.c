@@ -135,6 +135,8 @@ typedef struct Compiler {
 
 typedef struct ClassCompiler {
   struct ClassCompiler* enclosing;
+  uint16_t id;
+  Token methodName;
 //> Superclasses has-superclass
   bool hasSuperclass;
 //< Superclasses has-superclass
@@ -835,40 +837,28 @@ static Token syntheticToken(const char* text) {
   return token;
 }
 //< Superclasses synthetic-token
-//> Superclasses super
-static void super_(bool canAssign) {
-//> super-errors
+static void inner(bool canAssign) {
   if (currentClass == NULL) {
-    error("Can't use 'super' outside of a class.");
-  } else if (!currentClass->hasSuperclass) {
-    error("Can't use 'super' in a class with no superclass.");
+    error("Cannot use 'inner' outside of a class.");
   }
 
-//< super-errors
-  consume(TOKEN_DOT, "Expect '.' after 'super'.");
-  consume(TOKEN_IDENTIFIER, "Expect superclass method name.");
-  uint8_t name = identifierConstant(&parser.previous);
-//> super-get
-  
   namedVariable(syntheticToken("this"), false);
-/* Superclasses super-get < Superclasses super-invoke
-  namedVariable(syntheticToken("super"), false);
-  emitBytes(OP_GET_SUPER, name);
-*/
-//< super-get
-//> super-invoke
-  if (match(TOKEN_LEFT_PAREN)) {
-    uint8_t argCount = argumentList();
-    namedVariable(syntheticToken("super"), false);
-    emitBytes(OP_SUPER_INVOKE, name);
-    emitByte(argCount);
-  } else {
-    namedVariable(syntheticToken("super"), false);
-    emitBytes(OP_GET_SUPER, name);
+  consume(TOKEN_LEFT_PAREN, "Expect argument list after 'inner'.");
+  uint8_t argCount = argumentList();
+
+  uint8_t constant = 0;
+  if (currentClass != NULL) {
+    char name[256];
+    sprintf(name, "%.*s@%x",
+        currentClass->methodName.length,
+        currentClass->methodName.start,
+        currentClass->id);
+    constant = makeConstant(OBJ_VAL(copyString(name, (int)strlen(name))));
   }
-//< super-invoke
+
+  emitBytes(OP_INNER, constant);
+  emitByte(argCount);
 }
-//< Superclasses super
 //> Methods and Initializers this
 static void this_(bool canAssign) {
 //> this-outside-class
@@ -1008,7 +998,7 @@ ParseRule rules[] = {
   [TOKEN_SUPER]         = {NULL,     NULL,   PREC_NONE},
 */
 //> Superclasses table-super
-  [TOKEN_SUPER]         = {super_,   NULL,   PREC_NONE},
+  [TOKEN_INNER]         = {inner,    NULL,   PREC_NONE},
 //< Superclasses table-super
 /* Compiling Expressions rules < Methods and Initializers table-this
   [TOKEN_THIS]          = {NULL,     NULL,   PREC_NONE},
@@ -1137,6 +1127,7 @@ static void function(FunctionType type) {
 //> Methods and Initializers method
 static void method() {
   consume(TOKEN_IDENTIFIER, "Expect method name.");
+  currentClass->methodName = parser.previous;
   uint8_t constant = identifierConstant(&parser.previous);
 //> method-body
 
@@ -1170,6 +1161,10 @@ static void classDeclaration() {
   declareVariable();
 
   emitBytes(OP_CLASS, nameConstant);
+  uint16_t id = vm.nextClassID++;
+  emitByte((id >> 8) & 0xff);
+  emitByte(id & 0xff);
+
   defineVariable(nameConstant);
 
 //> Methods and Initializers create-class-compiler
@@ -1178,6 +1173,7 @@ static void classDeclaration() {
   classCompiler.hasSuperclass = false;
 //< Superclasses init-has-superclass
   classCompiler.enclosing = currentClass;
+  classCompiler.id = id;
   currentClass = &classCompiler;
 
 //< Methods and Initializers create-class-compiler
@@ -1192,12 +1188,6 @@ static void classDeclaration() {
     }
 
 //< inherit-self
-//> superclass-variable
-    beginScope();
-    addLocal(syntheticToken("super"));
-    defineVariable(0);
-    
-//< superclass-variable
     namedVariable(className, false);
     emitByte(OP_INHERIT);
 //> set-has-superclass
@@ -1219,12 +1209,6 @@ static void classDeclaration() {
 //> Methods and Initializers pop-class
   emitByte(OP_POP);
 //< Methods and Initializers pop-class
-//> Superclasses end-superclass-scope
-
-  if (classCompiler.hasSuperclass) {
-    endScope();
-  }
-//< Superclasses end-superclass-scope
 //> Methods and Initializers pop-enclosing
 
   currentClass = currentClass->enclosing;

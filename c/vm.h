@@ -81,6 +81,8 @@ typedef struct {
   int grayCapacity;
   Obj** grayStack;
 //< Garbage Collection vm-gray-stack
+
+  uint16_t nextClassID;
 } VM;
 
 //> interpret-result

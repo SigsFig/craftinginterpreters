@@ -188,6 +188,7 @@ void initVM() {
   vm.stackCapacity = 0;
   resetStack();
   vm.markValue = true;
+  vm.nextClassID = 0;
   defineNative("clock", clockNative);
   defineNative("sqrt", sqrtNative);
   defineNative("floor", floorNative);
@@ -368,6 +369,19 @@ static bool invoke(ObjString* name, int argCount) {
   return invokeFromClass(instance->klass, name, argCount);
 }
 //< Methods and Initializers invoke
+static bool invokeInner(ObjString* name, int argCount) {
+  Value receiver = peek(argCount);
+  ObjInstance* instance = AS_INSTANCE(receiver);
+
+  Value method;
+  if (!tableGet(&instance->klass->methods, name, &method)) {
+    vm.stackTop -= argCount + 1;
+    push(NIL_VAL);
+    return true;
+  }
+
+  return callClosure(AS_CLOSURE(method), argCount);
+}
 //> Methods and Initializers bind-method
 static bool bindMethod(ObjClass* klass, ObjString* name) {
   Value method;
@@ -429,6 +443,18 @@ static void defineMethod(ObjString* name) {
   Value method = peek(0);
   ObjClass* klass = AS_CLASS(peek(1));
   retainValue(method);
+
+  AS_CLOSURE(method)->classID = klass->id;
+
+  ObjString* originalName = name;
+  Value existing;
+  while (tableGet(&klass->methods, name, &existing)) {
+    ObjClosure* existingClosure = AS_CLOSURE(existing);
+    char newNameChars[256];
+    sprintf(newNameChars, "%s@%x", originalName->chars, existingClosure->classID);
+    name = copyString(newNameChars, (int)strlen(newNameChars));
+  }
+
   tableSet(&klass->methods, name, method);
   if (name == vm.initString) klass->initializer = method; // <--
   pop();
@@ -701,17 +727,6 @@ static InterpretResult run() {
         break;
       }
 //< Classes and Instances interpret-set-property
-//> Superclasses interpret-get-super
-      case OP_GET_SUPER: {
-        ObjString* name = READ_STRING();
-        ObjClass* superclass = AS_CLASS(pop());
-        
-        if (!bindMethod(superclass, name)) {
-          return INTERPRET_RUNTIME_ERROR;
-        }
-        break;
-      }
-//< Superclasses interpret-get-super
 //> Types of Values interpret-equal
       case OP_EQUAL: {
         Value b = pop();
@@ -839,18 +854,15 @@ static InterpretResult run() {
         break;
       }
 //< Methods and Initializers interpret-invoke
-//> Superclasses interpret-super-invoke
-      case OP_SUPER_INVOKE: {
+      case OP_INNER: {
         ObjString* method = READ_STRING();
         int argCount = READ_BYTE();
-        ObjClass* superclass = AS_CLASS(pop());
-        if (!invokeFromClass(superclass, method, argCount)) {
+        if (!invokeInner(method, argCount)) {
           return INTERPRET_RUNTIME_ERROR;
         }
         frame = &vm.frames[vm.frameCount - 1];
         break;
       }
-//< Superclasses interpret-super-invoke
 //> Closures interpret-closure
       case OP_CLOSURE: {
         ObjFunction* function = AS_FUNCTION(READ_CONSTANT());
@@ -907,9 +919,12 @@ static InterpretResult run() {
 //< Calls and Functions interpret-return
       }
 //> Classes and Instances interpret-class
-      case OP_CLASS:
-        push(OBJ_VAL(newClass(READ_STRING())));
+      case OP_CLASS: {
+        ObjString* name = READ_STRING();
+        uint16_t id = READ_SHORT();
+        push(OBJ_VAL(newClass(name, id)));
         break;
+      }
 //< Classes and Instances interpret-class
 //> Superclasses interpret-inherit
       case OP_INHERIT: {

@@ -1,0 +1,11 @@
+class A {
+  method(a) {
+    print inner();
+    print inner(1, 2, 3);
+    print a;
+  }
+}
+
+class B < A {}
+
+B().method("arg");
